@@ -181,6 +181,7 @@ Edit `config.py` to customize:
 - Verify Tesseract installation and that `PYTESSERACT_CMD` points to the correct executable.
 - For OCR issues, ensure images are clear and in supported formats.
 - If subcategory detection is incorrect, correct it in interactive mode — the correction is saved to `learning.json` and will be used for future similar files.
+- Never run `script.py` and `watcher.py` at the same time
 
 ## Contributing
 
