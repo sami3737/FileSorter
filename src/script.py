@@ -1,182 +1,25 @@
 import os
 import shutil
-import requests
-import pdfplumber
+from config import SOURCE, DEST, MODE, OLLAMA_URL, MAX_CHARS, OLLAMA_PARAMS, PRE_CLASSIFICATION_CATEGORIES, MAX_WORDS_EXTRACT, SUBCATEGORIES
 from langdetect import detect
-import json
-from src.config import SOURCE, DEST, LEARNING_FILE, MODE, OLLAMA_URL, PYTESSERACT_CMD, MAX_CHARS, OLLAMA_PARAMS, PRE_CLASSIFICATION_CATEGORIES, MAX_WORDS_EXTRACT
-
-# Function to extract text from various file types
-import os
-
-# DOCX
-from docx import Document
-
-# OCR image
-import pytesseract
-from PIL import Image
-
-# Excel
-from openpyxl import load_workbook
-pytesseract.pytesseract.tesseract_cmd = PYTESSERACT_CMD
-
-from odf.opendocument import load
-from odf.text import P
-
-# Function to recursively extract text from ODT elements
-def extract_text(element):
-    text = ""
-
-    for node in element.childNodes:
-        if node.nodeType == node.TEXT_NODE:
-            text += node.data
-        else:
-            text += extract_text(node)
-
-    return text
-
-# Function to read ODT files
-def read_odt(path):
-    try:
-        doc = load(path)
-        paragraphs = doc.getElementsByType(P)
-
-        text = "\n".join(extract_text(p) for p in paragraphs)
-
-        return text.strip()
-
-    except Exception as e:
-        print(f"Erreur lecture ODT {path}: {e}")
-        return ""
-        
-# Function to read content from various file types
-def read_file_content(path):
-    ext = os.path.splitext(path)[1].lower()
-
-    try:
-        # -------------------------
-        # PDF
-        # -------------------------
-        if ext == ".pdf":
-            text = ""
-
-            try:
-                with pdfplumber.open(path) as pdf:
-                    for page in pdf.pages[:2]:  # limite pour perf
-                        text += page.extract_text() or ""
-            except:
-                text = ""
-
-            # fallback OCR si vide
-            if not text.strip() and ext == ".pdf":
-                try:
-                    from pdf2image import convert_from_path
-                    images = convert_from_path(path, first_page=1, last_page=2)
-
-                    for img in images:
-                        text += pytesseract.image_to_string(img)
-                except:
-                    pass
-
-            return text.strip()
-
-        # -------------------------
-        # DOCX
-        # -------------------------
-        elif ext == ".docx":
-            try:
-                doc = Document(path)
-                return "\n".join(p.text for p in doc.paragraphs)
-            except:
-                return ""
-        
-        # -------------------------
-        # ODT
-        # -------------------------
-        elif ext == ".odt":
-            return read_odt(path)
-
-        # -------------------------
-        # TXT / MD
-        # -------------------------
-        elif ext in [".txt", ".md", ".csv"]:
-            try:
-                with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                    return f.read()
-            except:
-                return ""
-
-        # -------------------------
-        # Excel
-        # -------------------------
-        elif ext in [".xlsx", ".xls"]:
-            try:
-                wb = load_workbook(path)
-                text = ""
-
-                for sheet in wb:
-                    for row in sheet.iter_rows(values_only=True):
-                        text += " ".join([str(cell) for cell in row if cell]) + "\n"
-
-                return text
-            except:
-                return ""
-
-        # -------------------------
-        # Images (OCR)
-        # -------------------------
-        elif ext in [".png", ".jpg", ".jpeg", ".bmp"]:
-            try:
-                return pytesseract.image_to_string(Image.open(path))
-            except:
-                return ""
-
-        # -------------------------
-        # Fallback
-        # -------------------------
-        else:
-            return ""
-
-    except Exception as e:
-        print(f"Erreur lecture fichier {path}: {e}")
-        return ""
-    
-# Function to learn from history (matching filename/content with past entries)
-def learn_from_history(filename, content):
-    if not os.path.exists(LEARNING_FILE):
-        return None
-
-    with open(LEARNING_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    text = (filename + " " + (content or "")).lower()
-
-    best_match = None
-    best_score = 0
-
-    for item in data:
-        keywords = item.get("keywords", [])
-
-        score = sum(1 for k in keywords if k in text)
-
-        if score > best_score:
-            best_score = score
-            best_match = item["category"]
-
-    return best_match if best_score > 0 else None
-
+import requests
+from utils import file_reader
+from utils import learning
+   
 # Function to confirm category with user (in interactive mode) and allow correction if needed
-def confirm_category(file, category, mode="auto"):
+def confirm_category(file, category, subcategory=None, mode="auto"):
     if mode == "interactive":
-        user_input = input(f"{file} → {category} (Correcting ? y/n) : ")
+        subcat_str = f" / {subcategory}" if subcategory else ""
+        user_input = input(f"{file} → {category}{subcat_str} (Correcting ? y/n) : ")
 
         if user_input.lower() == "y":
-            category = input("Nouvelle catégorie : ")
+            category = input("New category : ")
+            subcategory = None  # Reset subcategory when category changes
 
-        return category, (user_input.lower() == "y")
+        return category, subcategory, (user_input.lower() == "y")
 
     # MODE AUTO → aucune interaction
-    return category, False
+    return category, subcategory, False
 
 # Function to extract keywords from a file (for learning)
 def extract_keywords(filename, content):
@@ -187,26 +30,6 @@ def extract_keywords(filename, content):
     keywords = [w for w in words if len(w) > 3]
 
     return list(set(keywords[:MAX_WORDS_EXTRACT]))  # max 10 mots
-
-# Function to save learning in a JSON file
-def save_learning(filename, category, content, corrected=False):
-    data = []
-
-    if os.path.exists(LEARNING_FILE):
-        with open(LEARNING_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-    entry = {
-        "filename": filename,
-        "category": category,
-        "keywords": extract_keywords(filename, content),
-        "corrected": corrected
-    }
-
-    data.append(entry)
-
-    with open(LEARNING_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
 
 # Function to pre-classify files based on simple rules (filename keywords)
 def pre_classify(filename):
@@ -234,6 +57,39 @@ def pre_classify(filename):
         return PRE_CLASSIFICATION_CATEGORIES[6]  # Autre
 
     return PRE_CLASSIFICATION_CATEGORIES[7]  # Non classé
+
+# Function to detect subcategory based on filename and content
+def detect_subcategory(filename, content, main_category):
+    if main_category not in SUBCATEGORIES:
+        return None
+    
+    text = (filename + " " + (content or "")).lower()
+    
+    subcategory_patterns = {
+        "Informatique": {
+            "U3": ["u3", "programmation", "initiation", "algorithm", "python", "javascript", "html", "css", "variable", "boucle", "fonction"],
+            "U5": ["u5", "base de données", "sql", "mysql", "mariadb", "requête", "table", "modèle", "merise"],
+            "U7": ["u7", "cybersécurité", "sécurité", "firewall", "vpn", "chiffrement", "authentification", "ssl", "tls"]
+        },
+        "CEJM": {
+            "1ère année": ["1ère", "1ere", "première", "annee 1", "année 1"],
+            "2è année": ["2è", "2e", "deuxième", "annee 2", "année 2"]
+        },
+        "Culture Générale": {
+            "Restitution": ["restitution", "synthèse", "résumé"],
+            "Support de cours": ["cours", "support", "td", "tp", "exercice"]
+        },
+        "Projet": {
+            "Projets BTS": ["projet", "bts", "dossier", "mission"]
+        }
+    }
+    
+    if main_category in subcategory_patterns:
+        for subcat, keywords in subcategory_patterns[main_category].items():
+            if any(keyword in text for keyword in keywords):
+                return subcat
+    
+    return None
 
 # Function to ask the AI to classify a file based on its name and content
 def ask_ai(filename, content):
@@ -290,11 +146,11 @@ def organize(mode="interactive"):
         if not os.path.isfile(path):
             continue
 
-        content = read_file_content(path)
+        content = file_reader.read_file_content(path)
         content = content[:MAX_CHARS]
 
         # 1. memory
-        category = learn_from_history(file, content)
+        category = learning.learn_from_history(file, content)
 
         # 2. rules
         if not category:
@@ -309,24 +165,35 @@ def organize(mode="interactive"):
         if not category:
             category = ask_ai(file, content)
 
-        # 5. user confirmation and correction
-        category, corrected = confirm_category(file, category, mode=mode)
-
-        # 6. move file
-        target_dir = os.path.join(DEST, category)
+        # 5. detect subcategory
+        subcategory = detect_subcategory(file, content, category)
+        
+        # 6. user confirmation and correction
+        category, subcategory, corrected = confirm_category(file, category, subcategory, mode=mode)
+        
+        # 6.5. re-detect subcategory if category was corrected
+        if corrected and category:
+            subcategory = detect_subcategory(file, content, category)
+        
+        # 7. move file
+        if subcategory:
+            target_dir = os.path.join(DEST, category, subcategory)
+        else:
+            target_dir = os.path.join(DEST, category)
         os.makedirs(target_dir, exist_ok=True)
 
         shutil.move(path, os.path.join(target_dir, file))
 
-        # 7. learning
-        save_learning(
+        # 8. learning
+        learning.save_learning(
             file,
             category,
             content,
+            subcategory,
             corrected=corrected
         )
 
-        print(f"{file} → {category}")
+        print(f"{file} → {category}" + (f" / {subcategory}" if subcategory else ""))
 
 # Main entry point
 if __name__ == "__main__":

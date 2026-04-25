@@ -4,7 +4,7 @@ LEARNING_FILE = "learning.json"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODE = "interactive"  # ou "interactive"
 PYTESSERACT_CMD = r"C:/Program Files/Tesseract-OCR/tesseract.exe"
-MAX_CHARS = 1500,
+MAX_CHARS = 1500
 PRE_CLASSIFICATION_CATEGORIES = ["CEJM", "Anglais", "Maths", "Informatique", "Culture Générale", "Projet", "Autre", "Non classé"]
 OLLAMA_PARAMS = {
     "temperature": 0.7,
@@ -21,5 +21,14 @@ OLLAMA_PARAMS = {
         "Autre": "fichier qui ne correspond à aucune catégorie, ou qui contient des éléments de plusieurs catégories, ou dont le contenu est trop vague pour être classé",
         "Non classé": "si tu n'es vraiment pas sûr, ou si le fichier est vide, ou si tu ne peux pas extraire de contenu, ou si le nom du fichier ne donne aucun indice, ou si le fichier est dans un format que tu ne peux pas lire"
     }
-},
+}
 MAX_WORDS_EXTRACT = 10
+PDF_PAGE_LIMIT = 2
+
+# Subcategories for each main category
+SUBCATEGORIES = {
+    "Informatique": ["U3", "U5", "U7"],
+    "CEJM": ["1ère année", "2è année"],
+    "Culture Générale": ["Restitution", "Support de cours"],
+    "Projet": ["Projets BTS"]
+}
