@@ -4,9 +4,9 @@ import requests
 import pdfplumber
 from langdetect import detect
 import json
-from config import SOURCE, DEST, LEARNING_FILE, MODE, OLLAMA_URL, PYTESSERACT_CMD, MAX_CHARS, OLLAMA_PARAMS, PRE_CLASSIFICATION_CATEGORIES
+from src.config import SOURCE, DEST, LEARNING_FILE, MODE, OLLAMA_URL, PYTESSERACT_CMD, MAX_CHARS, OLLAMA_PARAMS, PRE_CLASSIFICATION_CATEGORIES, MAX_WORDS_EXTRACT
 
-# Fonction pour lire le contenu d’un fichier (PDF pour l’instant)
+# Function to extract text from various file types
 import os
 
 # DOCX
@@ -23,6 +23,7 @@ pytesseract.pytesseract.tesseract_cmd = PYTESSERACT_CMD
 from odf.opendocument import load
 from odf.text import P
 
+# Function to recursively extract text from ODT elements
 def extract_text(element):
     text = ""
 
@@ -34,7 +35,7 @@ def extract_text(element):
 
     return text
 
-
+# Function to read ODT files
 def read_odt(path):
     try:
         doc = load(path)
@@ -48,6 +49,7 @@ def read_odt(path):
         print(f"Erreur lecture ODT {path}: {e}")
         return ""
         
+# Function to read content from various file types
 def read_file_content(path):
     ext = os.path.splitext(path)[1].lower()
 
@@ -139,7 +141,7 @@ def read_file_content(path):
         print(f"Erreur lecture fichier {path}: {e}")
         return ""
     
-# Fonction pour apprendre de l’historique des classifications
+# Function to learn from history (matching filename/content with past entries)
 def learn_from_history(filename, content):
     if not os.path.exists(LEARNING_FILE):
         return None
@@ -163,10 +165,10 @@ def learn_from_history(filename, content):
 
     return best_match if best_score > 0 else None
 
-# Fonction pour confirmer ou corriger la catégorie proposée à l’utilisateur
+# Function to confirm category with user (in interactive mode) and allow correction if needed
 def confirm_category(file, category, mode="auto"):
     if mode == "interactive":
-        user_input = input(f"{file} → {category} (corriger ? y/n) : ")
+        user_input = input(f"{file} → {category} (Correcting ? y/n) : ")
 
         if user_input.lower() == "y":
             category = input("Nouvelle catégorie : ")
@@ -176,17 +178,17 @@ def confirm_category(file, category, mode="auto"):
     # MODE AUTO → aucune interaction
     return category, False
 
-# Fonction pour extraire des mots-clés d’un fichier (pour l’apprentissage)
+# Function to extract keywords from a file (for learning)
 def extract_keywords(filename, content):
     text = (filename + " " + (content or "")).lower()
     words = text.replace("_", " ").replace("-", " ").split()
 
-    # filtre simple (tu pourras améliorer après)
+    # simple filter (you can improve this later with stop words, stemming, etc.)
     keywords = [w for w in words if len(w) > 3]
 
-    return list(set(keywords[:10]))  # max 10 mots
+    return list(set(keywords[:MAX_WORDS_EXTRACT]))  # max 10 mots
 
-# Fonction pour sauvegarder l’apprentissage dans un fichier JSON
+# Function to save learning in a JSON file
 def save_learning(filename, category, content, corrected=False):
     data = []
 
@@ -206,7 +208,7 @@ def save_learning(filename, category, content, corrected=False):
     with open(LEARNING_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
-# Fonction de pré-classification basée sur des règles simples
+# Function to pre-classify files based on simple rules (filename keywords)
 def pre_classify(filename):
     name = filename.lower()
 
@@ -233,7 +235,7 @@ def pre_classify(filename):
 
     return PRE_CLASSIFICATION_CATEGORIES[7]  # Non classé
 
-# Fonction pour demander à l’IA de classer un fichier en fonction de son nom et de son contenu
+# Function to ask the AI to classify a file based on its name and content
 def ask_ai(filename, content):
     prompt = f"""
         Tu es un système de classification de fichiers pour un étudiant en BTS SIO.
@@ -245,7 +247,7 @@ def ask_ai(filename, content):
         Catégories disponibles :"""
     
     for category, desc in OLLAMA_PARAMS["category_parameters"].items():
-    prompt += "\n" + "\n".join([f"""
+        prompt += "\n" + "\n".join([f"""
 
         - {category} : {desc}"""])
     
@@ -280,7 +282,7 @@ def ask_ai(filename, content):
 
     return response.json()["response"].strip().lower()
 
-# Fonction principale pour organiser les fichiers
+# Function to organize files
 def organize(mode="interactive"):
     for file in os.listdir(SOURCE):
         path = os.path.join(SOURCE, file)
@@ -291,14 +293,14 @@ def organize(mode="interactive"):
         content = read_file_content(path)
         content = content[:MAX_CHARS]
 
-        # 1. mémoire
+        # 1. memory
         category = learn_from_history(file, content)
 
-        # 2. règles simples
+        # 2. rules
         if not category:
             category = pre_classify(file)
 
-        # 3. langue (anglais prioritaire)
+        # 3. language (english priority)
         lang = detect(content)
         if lang == "en":
             category = "Anglais"
@@ -307,16 +309,16 @@ def organize(mode="interactive"):
         if not category:
             category = ask_ai(file, content)
 
-        # 5. correction utilisateur
+        # 5. user confirmation and correction
         category, corrected = confirm_category(file, category, mode=mode)
 
-        # 6. déplacement
+        # 6. move file
         target_dir = os.path.join(DEST, category)
         os.makedirs(target_dir, exist_ok=True)
 
         shutil.move(path, os.path.join(target_dir, file))
 
-        # 7. apprentissage
+        # 7. learning
         save_learning(
             file,
             category,
@@ -326,6 +328,6 @@ def organize(mode="interactive"):
 
         print(f"{file} → {category}")
 
-# Lancement de l’organisation
+# Main entry point
 if __name__ == "__main__":
     organize(mode=MODE)

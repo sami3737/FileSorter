@@ -1,5 +1,5 @@
-SOURCE = "C:/Users/samur/OneDrive/Documents/Cours/Dépot"
-DEST = "C:/Users/samur/OneDrive/Documents/Cours/Tri"
+SOURCE = "C:/Users/samur/OneDrive/Documents/Cours/data/Dépot"
+DEST = "C:/Users/samur/OneDrive/Documents/Cours/data/Tri"
 LEARNING_FILE = "learning.json"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODE = "interactive"  # ou "interactive"
@@ -21,4 +21,5 @@ OLLAMA_PARAMS = {
         "Autre": "fichier qui ne correspond à aucune catégorie, ou qui contient des éléments de plusieurs catégories, ou dont le contenu est trop vague pour être classé",
         "Non classé": "si tu n'es vraiment pas sûr, ou si le fichier est vide, ou si tu ne peux pas extraire de contenu, ou si le nom du fichier ne donne aucun indice, ou si le fichier est dans un format que tu ne peux pas lire"
     }
-}
+},
+MAX_WORDS_EXTRACT = 10

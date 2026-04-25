@@ -1,0 +1,11 @@
+requests
+pdfplumber
+langdetect
+watchdog
+python-docx
+openpyxl
+odfpy
+pytesseract
+pillow
+pdf2image
+pypandoc
