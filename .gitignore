@@ -1,0 +1,39 @@
+# 🔹 Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 🔹 Environnements virtuels
+venv/
+.env/
+.env.*
+
+# 🔹 Fichiers système (Windows / macOS)
+Thumbs.db
+.DS_Store
+
+# 🔹 Logs
+*.log
+
+# 🔹 Fichiers temporaires
+*.tmp
+*.temp
+
+# 🔹 Archives
+*.zip
+*.tar
+*.gz
+
+# 🔹 Données générées (à adapter selon ton projet)
+learning.json
+
+# 🔹 Ton dossier à ignorer
+Dépot/
+Tri/
+
+# 🔹 IDE / éditeurs
+.vscode/
+.idea/
+
+# 🔹 Fichiers sensibles (si tu en ajoutes plus tard)
+config.local.py

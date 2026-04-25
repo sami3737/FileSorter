@@ -4,7 +4,7 @@ import requests
 import pdfplumber
 from langdetect import detect
 import json
-from config import SOURCE, DEST, LEARNING_FILE, MODE, OLLAMA_URL, PYTESSERACT_CMD, MAX_CHARS
+from config import SOURCE, DEST, LEARNING_FILE, MODE, OLLAMA_URL, PYTESSERACT_CMD, MAX_CHARS, OLLAMA_PARAMS, PRE_CLASSIFICATION_CATEGORIES
 
 # Fonction pour lire le contenu d’un fichier (PDF pour l’instant)
 import os
@@ -211,16 +211,28 @@ def pre_classify(filename):
     name = filename.lower()
 
     if any(word in name for word in ["anglais", "lva", "english", "essay"]):
-        return "Anglais"
+        return PRE_CLASSIFICATION_CATEGORIES[1]  # Anglais
 
     if "math" in name:
-        return "Maths"
+        return PRE_CLASSIFICATION_CATEGORIES[2]  # Maths
 
     if "cejm" in name:
-        return "CEJM"
-
-    return None
+        return PRE_CLASSIFICATION_CATEGORIES[0]  # CEJM
     
+    if any(word in name for word in ["info", "programmation", "reseau", "base de données", "développement", "système d'exploitation", "sécurité informatique", "architecture informatique", "intelligence artificielle", "machine learning", "data science"]):
+        return PRE_CLASSIFICATION_CATEGORIES[3]  # Informatique
+    
+    if any(word in name for word in ["culture", "générale", "français", "dissertation", "analyse de texte", "histoire", "géographie", "philosophie", "sciences sociales", "actualité"]):
+        return PRE_CLASSIFICATION_CATEGORIES[4]  # Culture Générale
+    
+    if any(word in name for word in ["projet", "dossier", "mission", "rapport", "présentation"]):
+        return PRE_CLASSIFICATION_CATEGORIES[5]  # Projet
+    
+    if any(word in name for word in ["autre", "divers", "misc", "various"]):
+        return PRE_CLASSIFICATION_CATEGORIES[6]  # Autre
+
+    return PRE_CLASSIFICATION_CATEGORIES[7]  # Non classé
+
 # Fonction pour demander à l’IA de classer un fichier en fonction de son nom et de son contenu
 def ask_ai(filename, content):
     prompt = f"""
@@ -230,17 +242,14 @@ def ask_ai(filename, content):
         - Tout document en ANGLAIS ou contenant des mots anglais (essay, agree, disagree, english)
         doit être classé en "Anglais", même s’il contient des éléments d’autres catégories.
 
-        Catégories disponibles :
+        Catégories disponibles :"""
+    
+    for category, desc in OLLAMA_PARAMS["category_parameters"].items():
+    prompt += "\n" + "\n".join([f"""
 
-        - CEJM : droit, économie, management, entreprise, gestion, marketing, communication, ressources humaines, finance, comptabilité, économie d'entreprise
-        - Anglais : langue anglaise, LVA, TOEIC, exercices anglais, vocabulaire anglais, grammaire anglaise, compréhension écrite anglaise, expression écrite anglaise
-        - Maths : calculs, fonctions, statistiques, algorithmes mathématiques, géométrie, trigonométrie
-        - Informatique : programmation, réseau, base de données, développement, systèmes d'exploitation, sécurité informatique, architecture informatique, intelligence artificielle, machine learning, data science
-        - Culture Générale : français, dissertation, analyse de texte, histoire, géographie, philosophie, sciences sociales, actualités, culture générale
-        - Projet : projets scolaires, dossiers de projet, missions en entreprise, mission en école, rapport de stage, présentation de projet
-        - Autre : fichier qui ne correspond à aucune catégorie, ou qui contient des éléments de plusieurs catégories, ou dont le contenu est trop vague pour être classé
-        - Non classé : si tu n'es vraiment pas sûr, ou si le fichier est vide, ou si tu ne peux pas extraire de contenu, ou si le nom du fichier ne donne aucun indice, ou si le fichier est dans un format que tu ne peux pas lire
-
+        - {category} : {desc}"""])
+    
+    prompt += "\n\n".join([f"""
         Exemples :
         - "TCP/IP cours.pdf" → Informatique
         - "BTS Anglais 2023.pdf" → Anglais
@@ -254,17 +263,18 @@ def ask_ai(filename, content):
         - Pas d’explication
 
         Nom du fichier : {filename}
-        Contenu : {content[:800]}
+        Contenu : {content[:MAX_CHARS]}
 
         Réponse :
-        """
+        """])
 
     response = requests.post(OLLAMA_URL, json={
-        "model": "llama3.1",
+        "model": OLLAMA_PARAMS["model"],
         "prompt": prompt,
         "stream": False,
         "options": {
-            "temperature": 0
+            "temperature": OLLAMA_PARAMS["temperature"],
+            "max_tokens": OLLAMA_PARAMS["max_tokens"]
         }
     })
 
