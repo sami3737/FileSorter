@@ -37,3 +37,5 @@ Tri/
 
 # 🔹 Fichiers sensibles (si tu en ajoutes plus tard)
 config.local.py
+/output
+/tmp

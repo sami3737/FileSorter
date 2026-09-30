@@ -43,17 +43,21 @@ This project is an automated file organizer designed specifically for organizing
 ### Running the Watcher
 
 To start the automatic file watcher:
+
 ```
 python src/watcher.py
 ```
+
 The watcher will monitor the `SOURCE` directory and automatically organize new files as they are added.
 
 ### Manual Organization
 
 You can also run the organization script manually:
+
 ```
 python src/script.py
 ```
+
 This will process all files in the `SOURCE` directory according to the configured mode.
 
 ### Modes
@@ -96,16 +100,16 @@ If you only enter a main category without a subcategory (e.g., `Anglais`), the s
 
 The following categories and subcategories are available:
 
-| Category | Subcategories |
-|---|---|
-| Informatique | U3, U5, U7 |
-| CEJM | 1ère année, 2è année |
+| Category           | Subcategories                 |
+| ------------------ | ----------------------------- |
+| Informatique       | U3, U5, U7                    |
+| CEJM               | 1ère année, 2è année      |
 | Culture Générale | Restitution, Support de cours |
-| Projet | Projets BTS |
-| Anglais | *(none)* |
-| Maths | *(none)* |
-| Autre | *(none)* |
-| Non classé | *(none)* |
+| Projet             | Projets BTS                   |
+| Anglais            | *(none)*                    |
+| Maths              | *(none)*                    |
+| Autre              | *(none)*                    |
+| Non classé        | *(none)*                    |
 
 Categories and subcategories can be added or modified in `config.py` under `SUBCATEGORIES` and `PRE_CLASSIFICATION_CATEGORIES`.
 
@@ -154,7 +158,7 @@ Edit `config.py` to customize:
 
 - PDF (`.pdf`)
 - Microsoft Word (`.docx`)
-- Microsoft Excel (`.xlsx`, `.xls`)
+- Microsoft Excel (`.xlsx`)
 - OpenDocument Text (`.odt`)
 - Plain text / Markdown / CSV (`.txt`, `.md`, `.csv`)
 - Images (`.png`, `.jpg`, `.jpeg`, `.bmp`) — via Tesseract OCR
