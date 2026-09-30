@@ -1,15 +1,21 @@
-SOURCE = "C:/Users/samur/OneDrive/Documents/Cours/data/Dépot"
-DEST = "C:/Users/samur/OneDrive/Documents/Cours/data/Tri"
-LEARNING_FILE = "learning.json"
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+
+SOURCE = str(DATA_DIR / "Dépot")
+DEST = str(DATA_DIR / "Tri")
+LEARNING_FILE = str(DATA_DIR / "learning.json")
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODE = "interactive"  # ou "interactive"
+MODE = "interactive"  # "auto" ou "interactive"
 PYTESSERACT_CMD = r"C:/Program Files/Tesseract-OCR/tesseract.exe"
 MAX_CHARS = 1500
 PRE_CLASSIFICATION_CATEGORIES = ["CEJM", "Anglais", "Maths", "Informatique", "Culture Générale", "Projet", "Autre", "Non classé"]
 OLLAMA_PARAMS = {
     "temperature": 0.7,
     "model": "llama3.1",
-    "max_tokens": 1500,
+    "num_predict": 1500,
     "category": ["CEJM", "Anglais", "Maths", "Informatique", "Culture Générale", "Projet", "Autre", "Non classé"],
     "category_parameters": {
         "CEJM": "droit, économie, management, entreprise, gestion, marketing, communication, ressources humaines, finance, comptabilité, économie d'entreprise",

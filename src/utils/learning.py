@@ -2,16 +2,32 @@
 import json
 import os
 
-from config import LEARNING_FILE
-from script import extract_keywords
+from ..config import LEARNING_FILE, MAX_WORDS_EXTRACT
+
+
+def extract_keywords(filename, content):
+    """Extract a stable list of keywords used by the local learning history."""
+    text = (filename + " " + (content or "")).lower()
+    words = text.replace("_", " ").replace("-", " ").split()
+    keywords = [word for word in words if len(word) > 3]
+    return list(dict.fromkeys(keywords))[:MAX_WORDS_EXTRACT]
+
+
+def load_learning_data():
+    if not os.path.exists(LEARNING_FILE):
+        return []
+
+    try:
+        with open(LEARNING_FILE, "r", encoding="utf-8") as file_handle:
+            data = json.load(file_handle)
+            return data if isinstance(data, list) else []
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"Erreur de lecture de {LEARNING_FILE} : {error}")
+        return []
 
 
 def learn_from_history(filename, content):
-    if not os.path.exists(LEARNING_FILE):
-        return None
-
-    with open(LEARNING_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = load_learning_data()
 
     text = (filename + " " + (content or "")).lower()
 
@@ -31,11 +47,7 @@ def learn_from_history(filename, content):
 
 # Function to save learning in a JSON file
 def save_learning(filename, category, content, subcategory=None, corrected=False):
-    data = []
-
-    if os.path.exists(LEARNING_FILE):
-        with open(LEARNING_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
+    data = load_learning_data()
 
     entry = {
         "filename": filename,
@@ -47,6 +59,10 @@ def save_learning(filename, category, content, subcategory=None, corrected=False
 
     data.append(entry)
 
-    with open(LEARNING_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    os.makedirs(os.path.dirname(LEARNING_FILE), exist_ok=True)
+    try:
+        with open(LEARNING_FILE, "w", encoding="utf-8") as file_handle:
+            json.dump(data, file_handle, indent=4, ensure_ascii=False)
+    except OSError as error:
+        print(f"Erreur d'écriture de {LEARNING_FILE} : {error}")
 

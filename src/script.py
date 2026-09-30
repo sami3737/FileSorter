@@ -1,35 +1,81 @@
 import os
 import shutil
-from config import SOURCE, DEST, MODE, OLLAMA_URL, MAX_CHARS, OLLAMA_PARAMS, PRE_CLASSIFICATION_CATEGORIES, MAX_WORDS_EXTRACT, SUBCATEGORIES
-from langdetect import detect
+
 import requests
-from utils import file_reader
-from utils import learning
-   
+from langdetect import detect
+from langdetect.lang_detect_exception import LangDetectException
+
+from .config import (
+    DEST,
+    MAX_CHARS,
+    MODE,
+    OLLAMA_PARAMS,
+    OLLAMA_URL,
+    PRE_CLASSIFICATION_CATEGORIES,
+    SOURCE,
+    SUBCATEGORIES,
+)
+from .utils import file_reader, learning
+
+
+VALID_CATEGORIES = {
+    category.casefold(): category for category in PRE_CLASSIFICATION_CATEGORIES
+}
+
+
+def normalize_category(value):
+    """Return the configured category with its canonical spelling."""
+    if not value:
+        return None
+
+    return VALID_CATEGORIES.get(value.strip().casefold())
+
+
+def parse_category_selection(value):
+    """Parse and validate a category or category/subcategory selection."""
+    category_text, separator, subcategory_text = value.partition("/")
+    category = normalize_category(category_text)
+
+    if not category:
+        return None, None
+
+    if not separator:
+        return category, None
+
+    subcategory = subcategory_text.strip()
+    if subcategory not in SUBCATEGORIES.get(category, []):
+        return None, None
+
+    return category, subcategory
+
+
 # Function to confirm category with user (in interactive mode) and allow correction if needed
 def confirm_category(file, category, subcategory=None, mode="auto"):
     if mode == "interactive":
         subcat_str = f" / {subcategory}" if subcategory else ""
-        user_input = input(f"{file} → {category}{subcat_str} (Correcting ? y/n) : ")
+        user_input = input(
+            f"{file} → {category}{subcat_str} (Corriger ? o/N) : "
+        ).strip().casefold()
 
-        if user_input.lower() == "y":
-            category = input("New category : ")
-            subcategory = None  # Reset subcategory when category changes
+        if user_input in {"o", "oui", "y", "yes"}:
+            while True:
+                selection = input(
+                    "Nouvelle catégorie (catégorie ou catégorie/sous-catégorie) : "
+                ).strip()
+                new_category, new_subcategory = parse_category_selection(selection)
 
-        return category, subcategory, (user_input.lower() == "y")
+                if new_category:
+                    return new_category, new_subcategory, True
+
+                print(
+                    "Catégorie invalide. Utilisez une valeur définie dans config.py, "
+                    "par exemple Informatique/U5."
+                )
+
+        return category, subcategory, False
 
     # MODE AUTO → aucune interaction
     return category, subcategory, False
-
-# Function to extract keywords from a file (for learning)
-def extract_keywords(filename, content):
-    text = (filename + " " + (content or "")).lower()
-    words = text.replace("_", " ").replace("-", " ").split()
-
-    # simple filter (you can improve this later with stop words, stemming, etc.)
-    keywords = [w for w in words if len(w) > 3]
-
-    return list(set(keywords[:MAX_WORDS_EXTRACT]))  # max 10 mots
 
 # Function to pre-classify files based on simple rules (filename keywords)
 def pre_classify(filename):
@@ -56,7 +102,7 @@ def pre_classify(filename):
     if any(word in name for word in ["autre", "divers", "misc", "various"]):
         return PRE_CLASSIFICATION_CATEGORIES[6]  # Autre
 
-    return PRE_CLASSIFICATION_CATEGORIES[7]  # Non classé
+    return ""  # Classement inconnu
 
 # Function to detect subcategory based on filename and content
 def detect_subcategory(filename, content, main_category):
@@ -126,17 +172,42 @@ def ask_ai(filename, content):
         Réponse :
         """])
 
-    response = requests.post(OLLAMA_URL, json={
-        "model": OLLAMA_PARAMS["model"],
-        "prompt": prompt,
-        "stream": False,
-        "options": {
-            "temperature": OLLAMA_PARAMS["temperature"],
-            "max_tokens": OLLAMA_PARAMS["max_tokens"]
-        }
-    })
+    try:
+        response = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": OLLAMA_PARAMS["model"],
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": OLLAMA_PARAMS["temperature"],
+                    "num_predict": OLLAMA_PARAMS["num_predict"],
+                },
+            },
+            timeout=60,
+        )
+        response.raise_for_status()
+        category = normalize_category(response.json().get("response", ""))
 
-    return response.json()["response"].strip().lower()
+        if category:
+            return category
+
+        print(f"Réponse Ollama non reconnue pour {filename}. Classement par défaut.")
+    except (requests.RequestException, ValueError, KeyError) as error:
+        print(f"Erreur Ollama pour {filename} : {error}")
+
+    return "Non classé"
+
+
+def is_english(content):
+    """Detect English content without failing on empty or very short text."""
+    if not content or not content.strip():
+        return False
+
+    try:
+        return detect(content) == "en"
+    except LangDetectException:
+        return False
 
 # Function to organize files
 def organize(mode="interactive"):
@@ -157,8 +228,7 @@ def organize(mode="interactive"):
             category = pre_classify(file)
 
         # 3. language (english priority)
-        lang = detect(content)
-        if lang == "en":
+        if is_english(content):
             category = "Anglais"
 
         # 4. IA
@@ -172,7 +242,7 @@ def organize(mode="interactive"):
         category, subcategory, corrected = confirm_category(file, category, subcategory, mode=mode)
         
         # 6.5. re-detect subcategory if category was corrected
-        if corrected and category:
+        if corrected and category and subcategory is None:
             subcategory = detect_subcategory(file, content, category)
         
         # 7. move file

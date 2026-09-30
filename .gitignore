@@ -5,6 +5,7 @@ __pycache__/
 
 # 🔹 Environnements virtuels
 venv/
+.venv/
 .env/
 .env.*
 
@@ -39,3 +40,4 @@ Tri/
 config.local.py
 /output
 /tmp
+/documentation/~$FileSorter_Presentation_Enrichie.pptx

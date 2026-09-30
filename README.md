@@ -14,29 +14,65 @@ This project is an automated file organizer designed specifically for organizing
 
 ## Prerequisites
 
-- Python 3.x
+- Python 3.10 or later
 - Ollama installed and running locally (with `llama3.1` model pulled)
 - Tesseract OCR installed (path configured in `config.py`)
+- Poppler installed and available in `PATH` for OCR fallback on scanned PDFs
 - Required Python packages (see `requirements.txt`)
 
-## Installation
+## Windows Installation with a Virtual Environment
 
-1. Clone or download the project to your local machine.
-2. Install the required Python packages:
+1. Clone or download the project, then open PowerShell in the project root.
+2. Create the virtual environment:
+
+   ```powershell
+   python -m venv .venv
    ```
-   pip install -r requirements.txt
+
+3. Activate it:
+
+   ```powershell
+   .\.venv\Scripts\Activate.ps1
    ```
-3. Install and start Ollama:
+
+   If PowerShell blocks activation, you can use the virtual environment without changing the execution policy:
+
+   ```powershell
+   .\.venv\Scripts\python.exe -m pip install --upgrade pip
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+   ```
+
+   In that case, prefix the launch commands with `.\.venv\Scripts\python.exe` as well.
+
+4. Install the Python dependencies after activation:
+
+   ```powershell
+   python -m pip install --upgrade pip
+   python -m pip install -r requirements.txt
+   ```
+
+5. Install and start Ollama:
    - Download from [ollama.ai](https://ollama.ai)
    - Pull the model: `ollama pull llama3.1`
    - Ensure Ollama is running on `http://localhost:11434`
-4. Install Tesseract OCR:
+6. Install Tesseract OCR:
    - Download from [GitHub releases](https://github.com/UB-Mannheim/tesseract/wiki)
    - Update the path in `config.py` if necessary.
-5. Configure the paths in `config.py`:
-   - Set `SOURCE` to your source directory (e.g., `C:/Users/samur/OneDrive/Documents/Cours/Dépot`)
-   - Set `DEST` to your destination directory (e.g., `C:/Users/samur/OneDrive/Documents/Cours/Tri`)
+7. Install Poppler for scanned PDF OCR:
+   - Download a Windows build of Poppler.
+   - Add its `Library/bin` or `bin` directory to `PATH`.
+   - Verify the installation with `pdftoppm -h`.
+8. Configure the paths in `src/config.py` if necessary:
+   - `SOURCE` defaults to `data/Dépot`.
+   - `DEST` defaults to `data/Tri`.
+   - `LEARNING_FILE` defaults to `data/learning.json`.
    - Adjust other parameters as needed.
+
+To leave the virtual environment, run:
+
+```powershell
+deactivate
+```
 
 ## Usage
 
@@ -45,7 +81,7 @@ This project is an automated file organizer designed specifically for organizing
 To start the automatic file watcher:
 
 ```
-python src/watcher.py
+python -m src.watcher
 ```
 
 The watcher will monitor the `SOURCE` directory and automatically organize new files as they are added.
@@ -55,7 +91,7 @@ The watcher will monitor the `SOURCE` directory and automatically organize new f
 You can also run the organization script manually:
 
 ```
-python src/script.py
+python -m src.script
 ```
 
 This will process all files in the `SOURCE` directory according to the configured mode.
@@ -72,14 +108,14 @@ Change the `MODE` in `config.py` to switch between modes (`"auto"` or `"interact
 In interactive mode, the script will display the detected category (and subcategory if applicable) and ask for confirmation:
 
 ```
-Authentification et contrôle d'accès.pdf → Informatique / U7 (Correcting ? y/n) :
+Authentification et contrôle d'accès.pdf → Informatique / U7 (Corriger ? o/N) :
 ```
 
-- Type `n` (or press Enter) to accept the suggestion and move the file.
-- Type `y` to correct the classification. You will then be prompted to enter the new category:
+- Type `n` or press Enter to accept the suggestion and move the file.
+- Type `o` to correct the classification. The script also accepts `oui`, `y`, and `yes`.
 
 ```
-New category : Informatique/U5
+Nouvelle catégorie (catégorie ou catégorie/sous-catégorie) : Informatique/U5
 ```
 
 ### Category and Subcategory Input Format
@@ -103,8 +139,8 @@ The following categories and subcategories are available:
 | Category           | Subcategories                 |
 | ------------------ | ----------------------------- |
 | Informatique       | U3, U5, U7                    |
-| CEJM               | 1ère année, 2è année      |
-| Culture Générale | Restitution, Support de cours |
+| CEJM               | 1ère année, 2è année          |
+| Culture Générale   | Restitution, Support de cours |
 | Projet             | Projets BTS                   |
 | Anglais            | *(none)*                    |
 | Maths              | *(none)*                    |
@@ -147,7 +183,7 @@ Tri/
 
 Edit `config.py` to customize:
 
-- **Paths**: `SOURCE`, `DEST`, `LEARNING_FILE`
+- **Paths**: `SOURCE`, `DEST`, `LEARNING_FILE` (project-relative by default)
 - **AI Settings**: `OLLAMA_URL`, `OLLAMA_PARAMS` (model, temperature, categories, etc.)
 - **OCR**: `PYTESSERACT_CMD`
 - **Limits**: `MAX_CHARS`, `MAX_WORDS_EXTRACT`, `PDF_PAGE_LIMIT`
@@ -155,6 +191,8 @@ Edit `config.py` to customize:
 - **Subcategories**: `SUBCATEGORIES` — a dictionary mapping each main category to its list of subcategories
 
 ## Supported File Types
+
+FileSorter currently supports 11 extensions:
 
 - PDF (`.pdf`)
 - Microsoft Word (`.docx`)
@@ -185,7 +223,9 @@ Edit `config.py` to customize:
 - Verify Tesseract installation and that `PYTESSERACT_CMD` points to the correct executable.
 - For OCR issues, ensure images are clear and in supported formats.
 - If subcategory detection is incorrect, correct it in interactive mode — the correction is saved to `learning.json` and will be used for future similar files.
-- Never run `script.py` and `watcher.py` at the same time
+- Run commands from the project root with `python -m src.script` or `python -m src.watcher`.
+- Do not run the manual script and the watcher at the same time.
+- If scanned PDF OCR fails on Windows, check that `pdftoppm -h` works and that Poppler is present in `PATH`.
 
 ## Contributing
 
@@ -193,4 +233,4 @@ Feel free to submit issues or pull requests for improvements.
 
 ## License
 
-This project is open-source. Please check for any applicable licenses.
+No license has been selected yet. Add a `LICENSE` file before presenting the repository as freely reusable open-source software.

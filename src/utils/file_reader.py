@@ -5,7 +5,7 @@ import os
 from docx import Document
 
 # OCR image
-from config import PYTESSERACT_CMD, PDF_PAGE_LIMIT
+from ..config import PDF_PAGE_LIMIT, PYTESSERACT_CMD
 import pytesseract
 from PIL import Image
 
@@ -57,7 +57,8 @@ def read_file_content(path):
                 with pdfplumber.open(path) as pdf:
                     for page in pdf.pages[:PDF_PAGE_LIMIT]:  # limite pour perf
                         text += page.extract_text() or ""
-            except:
+            except Exception as error:
+                print(f"Erreur d'extraction PDF {path} : {error}")
                 text = ""
 
             # fallback OCR si vide
@@ -68,8 +69,8 @@ def read_file_content(path):
 
                     for img in images:
                         text += pytesseract.image_to_string(img)
-                except:
-                    pass
+                except Exception as error:
+                    print(f"Erreur OCR du PDF {path} : {error}")
 
             return text.strip()
 
@@ -80,7 +81,8 @@ def read_file_content(path):
             try:
                 doc = Document(path)
                 return "\n".join(p.text for p in doc.paragraphs)
-            except:
+            except Exception as error:
+                print(f"Erreur de lecture DOCX {path} : {error}")
                 return ""
         
         # -------------------------
@@ -96,15 +98,16 @@ def read_file_content(path):
             try:
                 with open(path, "r", encoding="utf-8", errors="ignore") as f:
                     return f.read()
-            except:
+            except Exception as error:
+                print(f"Erreur de lecture du fichier texte {path} : {error}")
                 return ""
 
         # -------------------------
         # Excel
         # -------------------------
-        elif ext in [".xlsx", ".xls"]:
+        elif ext == ".xlsx":
             try:
-                wb = load_workbook(path)
+                wb = load_workbook(path, read_only=True, data_only=True)
                 text = ""
 
                 for sheet in wb:
@@ -112,7 +115,8 @@ def read_file_content(path):
                         text += " ".join([str(cell) for cell in row if cell]) + "\n"
 
                 return text
-            except:
+            except Exception as error:
+                print(f"Erreur de lecture XLSX {path} : {error}")
                 return ""
 
         # -------------------------
@@ -121,7 +125,8 @@ def read_file_content(path):
         elif ext in [".png", ".jpg", ".jpeg", ".bmp"]:
             try:
                 return pytesseract.image_to_string(Image.open(path))
-            except:
+            except Exception as error:
+                print(f"Erreur OCR de l'image {path} : {error}")
                 return ""
 
         # -------------------------

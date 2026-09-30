@@ -1,8 +1,9 @@
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import time
-from src.script import organize
-from src.config import SOURCE
+
+from .config import SOURCE
+from .script import organize
 
 # Watcher to monitor the source directory for new files and trigger the organization process automatically. It uses watchdog to listen for file creation events and calls the organize function when a new file is detected. The watcher runs indefinitely until interrupted by the user.
 class Handler(FileSystemEventHandler):
@@ -12,16 +13,21 @@ class Handler(FileSystemEventHandler):
             time.sleep(1)
             organize(mode="auto")
 
-observer = Observer()
-observer.schedule(Handler(), SOURCE, recursive=False)
-observer.start()
+def main():
+    observer = Observer()
+    observer.schedule(Handler(), SOURCE, recursive=False)
+    observer.start()
 
-print("Watcher actif...")
+    print("Watcher actif...")
 
-try:
-    while True:
-        time.sleep(5)
-except KeyboardInterrupt:
-    observer.stop()
+    try:
+        while True:
+            time.sleep(5)
+    except KeyboardInterrupt:
+        observer.stop()
 
-observer.join()
+    observer.join()
+
+
+if __name__ == "__main__":
+    main()

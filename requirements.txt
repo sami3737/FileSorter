@@ -8,4 +8,3 @@ odfpy
 pytesseract
 pillow
 pdf2image
-pypandoc
